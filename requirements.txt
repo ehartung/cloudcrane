@@ -1,0 +1,4 @@
+boto3>=1.3.0
+botocore>=1.4.10
+clickclick>=1.0
+PyYAML
