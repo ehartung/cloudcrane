@@ -5,6 +5,6 @@
 Deploy application stacks with AWS CloudFormation and Elastic Container Service (ECS)
 
 
-## 1 Install SolrCloud-CLI
+## 1 Install Cloudcrane
 
         $ sudo python3 setup.py install
