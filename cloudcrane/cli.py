@@ -28,6 +28,7 @@ STYLES = {
 
 TITLES = {}
 
+
 @click.group(chain=True)
 def cli():
     """

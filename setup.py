@@ -58,8 +58,12 @@ CONSOLE_SCRIPTS = ['cloudcrane = cloudcrane.cli:main']
 
 class PyTest(TestCommand):
 
-    user_options = [('cov=', None, 'Run coverage'), ('cov-xml=', None, 'Generate junit xml report'), ('cov-html=',
-                                                                                                      None, 'Generate junit html report'), ('junitxml=', None, 'Generate xml of test results')]
+    user_options = [
+        ('cov=', None, 'Run coverage'),
+        ('cov-xml=', None, 'Generate junit xml report'),
+        ('cov-html=', None, 'Generate junit html report'),
+        ('junitxml=', None, 'Generate xml of test results')
+    ]
 
     def initialize_options(self):
         TestCommand.initialize_options(self)
@@ -82,7 +86,7 @@ class PyTest(TestCommand):
     def run_tests(self):
         try:
             import pytest
-        except:
+        except Exception:
             raise RuntimeError('py.test is not installed, run: pip install pytest')
         params = {'args': self.test_args}
         if self.cov:
@@ -105,7 +109,7 @@ def read(fname):
 
 def setup_package():
     # Assemble additional setup commands
-    cmdclass = {}
+    cmdclass = dict()
     cmdclass['test'] = PyTest
     command_options = {'test': {
         'test_suite': ('setup.py', 'tests'), 'cov': ('setup.py', MAIN_PACKAGE)}
