@@ -7,6 +7,8 @@ import yaml
 
 from clickclick.console import print_table
 
+from .base_template import BASE_TEMPLATE
+
 STYLES = {
     'DELETE_COMPLETE': {'fg': 'red'},
     'DELETE_FAILED': {'fg': 'red'},
@@ -40,17 +42,15 @@ def cli():
 @click.option('--application', help='Name of the application the AWS CloudFormation stack should be created for')
 @click.option('--version', help='Version of the application the AWS CloudFormation stack should be created for')
 @click.option('--region', default='eu-central-1', help='AWS region to create the new stack in')
-@click.option('--template', help='AWS CloudFormation template')
 @click.option('--parameters', help='YAML file with parameters for AWS CloudFormation template')
-def create(application, version, region, template, parameters):
+def create(application, version, region, parameters):
     """
     Create AWS CloudFormation stack for an application.
     """
 
     cf = boto3.client('cloudformation')
 
-    with open(template, 'r') as f:
-        cf_template = f.read()
+    cf_template = BASE_TEMPLATE
 
     with open(parameters, 'rb') as f:
         cf_parameters = yaml.load(f)
@@ -98,15 +98,18 @@ def delete(application, version, region):
 
 
 @cli.command('list')
-def list_stacks():
+@click.option('--all', is_flag=True, help='List all stacks')
+def list_stacks(all):
     """
     List active AWS CloudFormation stacks.
     """
 
     cf = boto3.client('cloudformation')
 
-    response = cf.list_stacks(
-        StackStatusFilter=[
+    if all:
+        stack_status_filter = []
+    else:
+        stack_status_filter = [
             'CREATE_IN_PROGRESS',
             'CREATE_FAILED',
             'CREATE_COMPLETE',
@@ -124,8 +127,9 @@ def list_stacks():
             'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS',
             'UPDATE_ROLLBACK_COMPLETE',
             'REVIEW_IN_PROGRESS'
-            ]
-    )
+        ]
+
+    response = cf.list_stacks(StackStatusFilter=stack_status_filter)
     rows = []
 
     for stack in response['StackSummaries']:
