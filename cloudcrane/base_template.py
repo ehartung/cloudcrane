@@ -47,8 +47,8 @@ Parameters:
   ElbScheme:
     Type: String
     Description: >-
-      Optional - Specify internal to create an internal load balancer with a DNS name that 
-      resolves to private IP addresses or internet-facing to create a load balancer with a 
+      Optional - Specify internal to create an internal load balancer with a DNS name that
+      resolves to private IP addresses or internet-facing to create a load balancer with a
       publicly resolvable DNS name, which resolves to public IP addresses. - defaults to internal
     Default: internal
   TargetGroupName:
@@ -85,23 +85,23 @@ Parameters:
     Description: Optional - CIDR/IP range for the VPC
     Default: 10.0.1.0/24
 Conditions:
-  SetEndpointToECSAgent: !Not 
-    - !Equals 
+  SetEndpointToECSAgent: !Not
+    - !Equals
       - !Ref EcsEndpoint
       - ''
-  UseDynamicPorts: !Equals 
+  UseDynamicPorts: !Equals
     - !Ref EcsPort
     - '0'
-  CreateELB: !Equals 
+  CreateELB: !Equals
     - !Ref CreateElasticLoadBalancer
     - 'true'
-  CreateEC2LCWithKeyPair: !Not 
-    - !Equals 
+  CreateEC2LCWithKeyPair: !Not
+    - !Equals
       - !Ref KeyName
       - ''
-  UseSpecifiedVpcAvailabilityZones: !Not 
-    - !Equals 
-      - !Join 
+  UseSpecifiedVpcAvailabilityZones: !Not
+    - !Equals
+      - !Join
         - ''
         - !Ref VpcAvailabilityZones
       - ''
@@ -117,28 +117,28 @@ Resources:
     Properties:
       VpcId: !Ref Vpc
       CidrBlock: !Ref SubnetCidrBlock1
-      AvailabilityZone: !If 
+      AvailabilityZone: !If
         - UseSpecifiedVpcAvailabilityZones
-        - !Select 
+        - !Select
           - '0'
           - !Ref VpcAvailabilityZones
-        - !Select 
+        - !Select
           - '0'
-          - !GetAZs 
+          - !GetAZs
             Ref: 'AWS::Region'
   PubSubnetAz2:
     Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref Vpc
       CidrBlock: !Ref SubnetCidrBlock2
-      AvailabilityZone: !If 
+      AvailabilityZone: !If
         - UseSpecifiedVpcAvailabilityZones
-        - !Select 
+        - !Select
           - '1'
           - !Ref VpcAvailabilityZones
-        - !Select 
+        - !Select
           - '1'
-          - !GetAZs 
+          - !GetAZs
             Ref: 'AWS::Region'
   InternetGateway:
     Type: 'AWS::EC2::InternetGateway'
@@ -173,18 +173,18 @@ Resources:
     Properties:
       GroupDescription: ECS Allowed Ports
       VpcId: !Ref Vpc
-      SecurityGroupIngress: !If 
+      SecurityGroupIngress: !If
         - CreateELB
         - - IpProtocol: tcp
             FromPort: '1'
             ToPort: '65535'
             SourceSecurityGroupId: !Ref AlbSecurityGroup
         - - IpProtocol: tcp
-            FromPort: !If 
+            FromPort: !If
               - UseDynamicPorts
               - '49153'
               - !Ref EcsPort
-            ToPort: !If 
+            ToPort: !If
               - UseDynamicPorts
               - '65535'
               - !Ref EcsPort
@@ -212,7 +212,7 @@ Resources:
     Condition: CreateELB
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
-      Name: !Join 
+      Name: !Join
             - ''
             - - !Ref 'AWS::StackName'
               - '-alb'
@@ -239,15 +239,15 @@ Resources:
       InstanceType: !Ref EcsInstanceType
       AssociatePublicIpAddress: true
       IamInstanceProfile: !Ref IamRoleInstanceProfile
-      KeyName: !If 
+      KeyName: !If
         - CreateEC2LCWithKeyPair
         - !Ref KeyName
         - !Ref 'AWS::NoValue'
       SecurityGroups:
         - !Ref EcsSecurityGroup
-      UserData: !If 
+      UserData: !If
         - SetEndpointToECSAgent
-        - !Base64 
+        - !Base64
           'Fn::Join':
             - ''
             - - |
@@ -260,7 +260,7 @@ Resources:
                 echo ECS_BACKEND_HOST=
               - !Ref EcsEndpoint
               - ' >> /etc/ecs/ecs.config'
-        - !Base64 
+        - !Base64
           'Fn::Join':
             - ''
             - - |
@@ -272,7 +272,7 @@ Resources:
     Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:
       VPCZoneIdentifier:
-        - !Join 
+        - !Join
           - ','
           - - !Ref PubSubnetAz1
             - !Ref PubSubnetAz2
@@ -282,7 +282,7 @@ Resources:
       DesiredCapacity: !Ref AsgMaxSize
       Tags:
         - Key: Name
-          Value: !Join 
+          Value: !Join
             - ''
             - - 'ECS Instance - '
               - !Ref 'AWS::StackName'
@@ -293,7 +293,7 @@ Outputs:
     Value: !Ref EcsInstanceAsg
   EcsElbName:
     Description: Load Balancer for ECS Service
-    Value: !If 
+    Value: !If
       - CreateELB
       - !Ref EcsElasticLoadBalancer
       - ''
