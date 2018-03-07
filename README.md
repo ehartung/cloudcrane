@@ -30,6 +30,7 @@ Deploy application stacks with AWS CloudFormation and Elastic Container Service 
         $ cloudcrane delete --application=my-app --version=1
         
 ## Connect to your Docker container
+For connecting via SSH, add port 22 to security group first, then:
 
         $ ssh -i "my-app-ssh.pem" ec2-user@EC2_INSTANCE_URL
         $ docker exec -it CONTAINER_ID bash
