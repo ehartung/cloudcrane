@@ -38,12 +38,75 @@ def cli():
     """
 
 
-@cli.command()
+@cli.command('cluster')
+@click.argument('command')
+@click.option('--cluster-name', default='default', help='Name of the ECS cluster (default = "default")')
+@click.option('--ami', help='ID of AMI to be used for the instances of the cluster')
+@click.option('--instance-type', default='t2.micro', help='EC2 instance type (default = t2.micro)')
+@click.option('--max-instances', default='1', help='Maximum number of EC2 instances in auto-scaling group')
+def cluster(command, cluster_name, ami, instance_type, max_instances):
+    """
+    Manage ECS clusters.
+
+    Possible commands: create, list, delete
+    """
+    ecs = boto3.client('ecs')
+
+    if command == 'create':
+        ecs.create_cluster(clusterName=cluster_name)
+
+        cf_parameters = dict()
+        cf_parameters['EcsClusterName'] = cluster_name
+        cf_parameters['EcsAmiId'] = ami
+        cf_parameters['EcsInstanceType'] = instance_type
+        cf_parameters['AsgMaxSize'] = max_instances
+        __create_cf_stack(stack_name=cluster_name, version='1', parameters=cf_parameters)
+
+    elif command == 'list':
+        __list_stacks(all=cluster_name == 'all')
+
+    elif command == 'delete':
+        __delete_cf_stack(stack_name=cluster_name, version='1')
+        ecs.delete_cluster(cluster=cluster_name)
+
+
+@cli.command('service')
+@click.argument('command')
 @click.option('--application', help='Name of the application the AWS CloudFormation stack should be created for')
+@click.option('--cluster-name', default='default', help='Name of the ECS cluster (default = "default")')
 @click.option('--version', help='Version of the application the AWS CloudFormation stack should be created for')
 @click.option('--region', default='eu-central-1', help='AWS region to create the new stack in')
-@click.option('--parameters', help='YAML file with parameters for AWS CloudFormation template')
-def create(application, version, region, parameters):
+@click.option('--parameters', default='cloudcrane.yaml', help='YAML file with parameters for deployment of service to ECS')
+def service(command, cluster_name, application, version, region, parameters):
+    """
+    Manage services in ECS cluster.
+
+    Possible commands: deploy
+    """
+    if command == 'deploy':
+
+        with open(parameters, 'rb') as f:
+            cf_parameters = yaml.load(f)
+
+        container_definitions = list()
+        container_definitions.append(cf_parameters)
+
+        ecs = boto3.client('ecs')
+        ecs.register_task_definition(
+            family=application,
+            taskRoleArn='',
+            volumes=[
+            ],
+            containerDefinitions=container_definitions
+        )
+
+        ecs.run_task(
+            cluster=cluster_name,
+            taskDefinition=application
+        )
+
+
+def __create_cf_stack(stack_name, version, parameters):
     """
     Create AWS CloudFormation stack for an application.
     """
@@ -52,15 +115,12 @@ def create(application, version, region, parameters):
 
     cf_template = BASE_TEMPLATE
 
-    with open(parameters, 'rb') as f:
-        cf_parameters = yaml.load(f)
-
     cf_parameters_list = list()
-    for key, value in cf_parameters.items():
+    for key, value in parameters.items():
         cf_parameters_list.append({'ParameterKey': key, 'ParameterValue': value})
 
     cf.create_stack(
-        StackName=application + '-' + version,
+        StackName=stack_name + '-' + version,
         TemplateBody=cf_template,
         Parameters=cf_parameters_list,
         DisableRollback=False,
@@ -71,7 +131,7 @@ def create(application, version, region, parameters):
         Tags=[
             {
                 'Key': 'name',
-                'Value': application
+                'Value': stack_name
             },
             {
                 'Key': 'version',
@@ -81,11 +141,7 @@ def create(application, version, region, parameters):
     )
 
 
-@cli.command()
-@click.option('--application', help='Name of the application the AWS CloudFormation stack should be created for')
-@click.option('--version', help='Version of the application the AWS CloudFormation stack should be created for')
-@click.option('--region', default='eu-central-1', help='AWS region to create the new stack in')
-def delete(application, version, region):
+def __delete_cf_stack(stack_name, version):
     """
     Delete AWS CloudFormation stack for an application.
     """
@@ -93,13 +149,11 @@ def delete(application, version, region):
     cf = boto3.client('cloudformation')
 
     cf.delete_stack(
-        StackName=application + '-' + version,
+        StackName=stack_name + '-' + version,
     )
 
 
-@cli.command('list')
-@click.option('--all', is_flag=True, help='List all stacks')
-def list_stacks(all):
+def __list_stacks(all):
     """
     List active AWS CloudFormation stacks.
     """

@@ -1,10 +1,4 @@
-IamRoleInstanceProfile: 'ecsInstanceRole'
-EcsAmiId: 'ami-12345678'
-EcsInstanceType: 't2.micro'
-EcsPort: '80'
-EcsClusterName: 'my-app'
-TargetGroupName: 'my-app'
-CreateElasticLoadBalancer: 'true'
-ElbScheme: 'internal'
-KeyName: 'my-app-ssh'
-VpcAvailabilityZones: 'us-east-1a,us-east-1b,us-east-1c'
+name: 'my-app'
+image: 'repository/my-app:latest'
+cpu: 123
+memory: 123

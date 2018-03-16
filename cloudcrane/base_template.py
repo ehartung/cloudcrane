@@ -15,7 +15,7 @@ Parameters:
     Description: >-
       Optional - Name of an existing EC2 KeyPair to enable SSH access to the ECS
       instances
-    Default: ''
+    Default: 'ecs-ssh'
   AsgMaxSize:
     Type: Number
     Description: Maximum size and initial Desired Capacity of ECS Auto Scaling Group
@@ -25,6 +25,7 @@ Parameters:
     Description: >-
       Name or the Amazon Resource Name (ARN) of the instance profile associated
       with the IAM role for the instance
+    Default: ecsInstanceRole
   EcsClusterName:
     Type: String
     Description: ECS Cluster Name
@@ -54,7 +55,7 @@ Parameters:
   TargetGroupName:
     Type: String
     Description: The target group name
-    Default: ECSFirstRunTargetGroup
+    Default: default
   SourceCidr:
     Type: String
     Description: Optional - CIDR/IP range for EcsPort and ElbPort - defaults to 0.0.0.0/0
@@ -66,7 +67,7 @@ Parameters:
   CreateElasticLoadBalancer:
     Type: String
     Description: 'Optional : When set to true, creates a ELB for ECS Service'
-    Default: 'false'
+    Default: 'true'
   VpcAvailabilityZones:
     Type: CommaDelimitedList
     Description: >-
