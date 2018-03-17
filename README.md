@@ -24,6 +24,10 @@ Deploy application stacks with AWS CloudFormation and Elastic Container Service 
 
         $ cloudcrane service --application=my-app --version=1 --parameters=example.yaml deploy
         
+## Stop application
+
+        $ cloudcrane service --application=my-app --version=1 stop
+        
 ## Delete CloudFormation stack
 
         $ cloudcrane cluster delete

@@ -83,6 +83,8 @@ def service(command, cluster_name, application, version, region, parameters):
 
     Possible commands: deploy
     """
+    ecs = boto3.client('ecs')
+
     if command == 'deploy':
 
         with open(parameters, 'rb') as f:
@@ -91,7 +93,6 @@ def service(command, cluster_name, application, version, region, parameters):
         container_definitions = list()
         container_definitions.append(cf_parameters)
 
-        ecs = boto3.client('ecs')
         ecs.register_task_definition(
             family=application,
             taskRoleArn='',
@@ -103,6 +104,12 @@ def service(command, cluster_name, application, version, region, parameters):
         ecs.run_task(
             cluster=cluster_name,
             taskDefinition=application
+        )
+
+    elif command == 'stop':
+        ecs.stop_task(
+            cluster=cluster_name,
+            task=application
         )
 
 
