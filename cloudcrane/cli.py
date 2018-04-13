@@ -19,6 +19,8 @@ STYLES = {
     'DELETE_IN_PROGRESS': {'fg': 'red', 'bold': True},
     'ROLLBACK_IN_PROGRESS': {'fg': 'red', 'bold': True},
     'ROLLBACK_FAILED': {'fg': 'red'},
+    'RUNNING': {'fg': 'green'},
+    'STOPPED': {'fg': 'red'},
     'UPDATE_COMPLETE': {'fg': 'green'},
     'UPDATE_ROLLBACK_IN_PROGRESS': {'fg': 'red', 'bold': True},
     'UPDATE_IN_PROGRESS': {'fg': 'yellow', 'bold': True},
@@ -76,7 +78,8 @@ def cluster(command, cluster_name, ami, instance_type, max_instances):
 @click.option('--cluster-name', default='default', help='Name of the ECS cluster (default = "default")')
 @click.option('--version', help='Version of the application the AWS CloudFormation stack should be created for')
 @click.option('--region', default='eu-central-1', help='AWS region to create the new stack in')
-@click.option('--parameters', default='cloudcrane.yaml', help='YAML file with parameters for deployment of service to ECS')
+@click.option('--parameters', default='cloudcrane.yaml',
+              help='YAML file with parameters for deployment of service to ECS')
 def service(command, cluster_name, application, version, region, parameters):
     """
     Manage services in ECS cluster.
@@ -111,6 +114,9 @@ def service(command, cluster_name, application, version, region, parameters):
             cluster=cluster_name,
             task=application
         )
+
+    elif command == 'list':
+        __list_tasks(cluster_name=cluster_name)
 
 
 def __create_cf_stack(stack_name, version, parameters):
@@ -202,6 +208,27 @@ def __list_stacks(all):
     rows.sort(key=lambda x: x['stack_name'])
 
     columns = ['stack_name', 'status', 'creation_time', 'description']
+    print_table(columns, rows, styles=STYLES, titles=TITLES)
+
+
+def __list_tasks(cluster_name):
+    """
+    List active ECS tasks.
+    """
+
+    ecs = boto3.client('ecs')
+
+    rows = []
+
+    list_tasks_response = ecs.list_tasks(cluster=cluster_name)
+    describe_tasks_response = ecs.describe_tasks(cluster=cluster_name, tasks=list_tasks_response['taskArns'])
+
+    for task in describe_tasks_response['tasks']:
+        rows.append({'service_name': task['group'].replace('family:', ''), 'status': task['lastStatus']})
+
+    rows.sort(key=lambda x: x['status'])
+
+    columns = ['service_name', 'status']
     print_table(columns, rows, styles=STYLES, titles=TITLES)
 
 
