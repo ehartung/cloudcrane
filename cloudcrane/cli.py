@@ -17,6 +17,7 @@ STYLES = {
     'CREATE_FAILED': {'fg': 'red'},
     'CREATE_IN_PROGRESS': {'fg': 'yellow', 'bold': True},
     'DELETE_IN_PROGRESS': {'fg': 'red', 'bold': True},
+    'PENDING': {'fg': 'yellow', 'bold': True},
     'ROLLBACK_IN_PROGRESS': {'fg': 'red', 'bold': True},
     'ROLLBACK_FAILED': {'fg': 'red'},
     'RUNNING': {'fg': 'green'},
@@ -88,6 +89,11 @@ def service(command, cluster_name, application, version, region, parameters):
     """
     ecs = boto3.client('ecs')
 
+    if version:
+        service_name = application + '-' + version
+    else:
+        service_name = application
+
     if command == 'deploy':
 
         with open(parameters, 'rb') as f:
@@ -97,7 +103,7 @@ def service(command, cluster_name, application, version, region, parameters):
         container_definitions.append(cf_parameters)
 
         ecs.register_task_definition(
-            family=application,
+            family=service_name,
             taskRoleArn='',
             volumes=[
             ],
@@ -106,14 +112,19 @@ def service(command, cluster_name, application, version, region, parameters):
 
         ecs.run_task(
             cluster=cluster_name,
-            taskDefinition=application
+            taskDefinition=service_name
         )
 
     elif command == 'stop':
-        ecs.stop_task(
+        tasks = ecs.list_tasks(
             cluster=cluster_name,
-            task=application
+            family=service_name
         )
+        for task in tasks['taskArns']:
+            ecs.stop_task(
+                cluster=cluster_name,
+                task=task
+            )
 
     elif command == 'list':
         __list_tasks(cluster_name=cluster_name)
@@ -221,10 +232,11 @@ def __list_tasks(cluster_name):
     rows = []
 
     list_tasks_response = ecs.list_tasks(cluster=cluster_name)
-    describe_tasks_response = ecs.describe_tasks(cluster=cluster_name, tasks=list_tasks_response['taskArns'])
+    if len(list_tasks_response['taskArns']) > 0:
+        describe_tasks_response = ecs.describe_tasks(cluster=cluster_name, tasks=list_tasks_response['taskArns'])
 
-    for task in describe_tasks_response['tasks']:
-        rows.append({'service_name': task['group'].replace('family:', ''), 'status': task['lastStatus']})
+        for task in describe_tasks_response['tasks']:
+            rows.append({'service_name': task['group'].replace('family:', ''), 'status': task['lastStatus']})
 
     rows.sort(key=lambda x: x['status'])
 
