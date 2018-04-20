@@ -3,6 +3,7 @@
 import boto3
 import calendar
 import click
+import time
 import yaml
 
 from clickclick.console import print_table
@@ -20,8 +21,7 @@ STYLES = {
     'PENDING': {'fg': 'yellow', 'bold': True},
     'ROLLBACK_IN_PROGRESS': {'fg': 'red', 'bold': True},
     'ROLLBACK_FAILED': {'fg': 'red'},
-    'RUNNING': {'fg': 'green'},
-    'STOPPED': {'fg': 'red'},
+    'ACTIVE': {'fg': 'green'},
     'UPDATE_COMPLETE': {'fg': 'green'},
     'UPDATE_ROLLBACK_IN_PROGRESS': {'fg': 'red', 'bold': True},
     'UPDATE_IN_PROGRESS': {'fg': 'yellow', 'bold': True},
@@ -88,6 +88,7 @@ def service(command, cluster_name, application, version, region, parameters):
     Possible commands: deploy
     """
     ecs = boto3.client('ecs')
+    elb = boto3.client('elbv2')
 
     if version:
         service_name = application + '-' + version
@@ -97,34 +98,59 @@ def service(command, cluster_name, application, version, region, parameters):
     if command == 'deploy':
 
         with open(parameters, 'rb') as f:
-            cf_parameters = yaml.load(f)
+            parameters = yaml.load(f)
 
         container_definitions = list()
-        container_definitions.append(cf_parameters)
+        container_definitions.append(parameters)
 
         ecs.register_task_definition(
             family=service_name,
             taskRoleArn='',
-            volumes=[
-            ],
+            volumes=[],
             containerDefinitions=container_definitions
         )
 
-        ecs.run_task(
+        target_groups = elb.describe_target_groups(Names=['default'])['TargetGroups']
+
+        ecs.create_service(
             cluster=cluster_name,
-            taskDefinition=service_name
+            serviceName=service_name,
+            taskDefinition=service_name,
+            loadBalancers=[
+                {
+                    'targetGroupArn': target_groups[0]['TargetGroupArn'],
+                    'containerName': parameters['name'],
+                    'containerPort': parameters['portMappings'][0]['containerPort']
+                }
+            ],
+            desiredCount=1,
+            launchType='EC2'
         )
 
-    elif command == 'stop':
-        tasks = ecs.list_tasks(
+    elif command == 'delete':
+
+        service_description = __get_service_description(cluster_name=cluster_name, service_name=service_name)
+        if not service_description:
+            print('ERROR: Unknown service: [{0}]'.format(service_name))
+            __print_usage(service)
+            exit(1)
+
+        ecs.update_service(
             cluster=cluster_name,
-            family=service_name
+            service=service_name,
+            desiredCount=0
         )
-        for task in tasks['taskArns']:
-            ecs.stop_task(
-                cluster=cluster_name,
-                task=task
-            )
+
+        running_count = 1
+        while running_count > 0:
+            service_description = __get_service_description(cluster_name=cluster_name, service_name=service_name)
+            running_count = service_description['runningCount']
+            time.sleep(1)
+
+        ecs.delete_service(
+            cluster=cluster_name,
+            service=service_name
+        )
 
     elif command == 'list':
         __list_tasks(cluster_name=cluster_name)
@@ -226,22 +252,59 @@ def __list_tasks(cluster_name):
     """
     List active ECS tasks.
     """
-
-    ecs = boto3.client('ecs')
-
     rows = []
 
-    list_tasks_response = ecs.list_tasks(cluster=cluster_name)
-    if len(list_tasks_response['taskArns']) > 0:
-        describe_tasks_response = ecs.describe_tasks(cluster=cluster_name, tasks=list_tasks_response['taskArns'])
-
-        for task in describe_tasks_response['tasks']:
-            rows.append({'service_name': task['group'].replace('family:', ''), 'status': task['lastStatus']})
+    for service in __get_services_in_cluster(cluster_name=cluster_name):
+        rows.append({
+            'service_name': service['serviceName'],
+            'status': service['status'],
+            'tasks': str(service['runningCount']) + '/' + str(service['desiredCount'])
+        })
 
     rows.sort(key=lambda x: x['status'])
 
-    columns = ['service_name', 'status']
+    columns = ['service_name', 'status', 'tasks']
     print_table(columns, rows, styles=STYLES, titles=TITLES)
+
+
+def __get_services_in_cluster(cluster_name):
+    """
+    Get services with description of a given cluster.
+    """
+    ecs = boto3.client('ecs')
+    services = ecs.list_services(cluster=cluster_name)
+    if len(services['serviceArns']) > 0:
+        services_with_description = ecs.describe_services(
+            cluster=cluster_name,
+            services=services['serviceArns']
+        )
+        return services_with_description['services']
+    else:
+        return []
+
+
+def __get_service_description(cluster_name, service_name):
+    """
+    Get description of a service in a cluster.
+    """
+    ecs = boto3.client('ecs')
+    services = ecs.list_services(cluster=cluster_name)
+    if len(services['serviceArns']) > 0:
+        services_with_description = ecs.describe_services(
+            cluster=cluster_name,
+            services=services['serviceArns']
+        )
+        return next(i for i in services_with_description['services'] if i['serviceName'] == service_name)
+    else:
+        return None
+
+
+def __print_usage(command):
+    """
+    Print usage information (help text) of click command
+    """
+    with click.Context(command) as ctx:
+        click.echo(command.get_help(ctx))
 
 
 def main():
