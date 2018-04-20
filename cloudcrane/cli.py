@@ -101,7 +101,7 @@ def service(command, cluster_name, application, version, region, parameters):
             parameters = yaml.load(f)
 
         container_definitions = list()
-        container_definitions.append(parameters)
+        container_definitions.append(parameters['containerDefinition'])
 
         ecs.register_task_definition(
             family=service_name,
@@ -119,11 +119,11 @@ def service(command, cluster_name, application, version, region, parameters):
             loadBalancers=[
                 {
                     'targetGroupArn': target_groups[0]['TargetGroupArn'],
-                    'containerName': parameters['name'],
-                    'containerPort': parameters['portMappings'][0]['containerPort']
+                    'containerName': parameters['containerDefinition']['name'],
+                    'containerPort': parameters['containerDefinition']['portMappings'][0]['containerPort']
                 }
             ],
-            desiredCount=1,
+            desiredCount=parameters['desiredCount'],
             launchType='EC2'
         )
 
