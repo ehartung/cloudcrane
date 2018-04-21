@@ -45,17 +45,6 @@ Parameters:
     Type: String
     Description: 'Optional - Health Check Target for ELB - defaults to HTTP:80/'
     Default: 'HTTP:80/'
-  ElbScheme:
-    Type: String
-    Description: >-
-      Optional - Specify internal to create an internal load balancer with a DNS name that
-      resolves to private IP addresses or internet-facing to create a load balancer with a
-      publicly resolvable DNS name, which resolves to public IP addresses. - defaults to internal
-    Default: internal
-  TargetGroupName:
-    Type: String
-    Description: The target group name
-    Default: default
   SourceCidr:
     Type: String
     Description: Optional - CIDR/IP range for EcsPort and ElbPort - defaults to 0.0.0.0/0
@@ -64,10 +53,6 @@ Parameters:
     Type: String
     Description: 'Optional : ECS Endpoint for the ECS Agent to connect to'
     Default: ''
-  CreateElasticLoadBalancer:
-    Type: String
-    Description: 'Optional : When set to true, creates a ELB for ECS Service'
-    Default: 'true'
   VpcAvailabilityZones:
     Type: CommaDelimitedList
     Description: >-
@@ -90,12 +75,6 @@ Conditions:
     - !Equals
       - !Ref EcsEndpoint
       - ''
-  UseDynamicPorts: !Equals
-    - !Ref EcsPort
-    - '0'
-  CreateELB: !Equals
-    - !Ref CreateElasticLoadBalancer
-    - 'true'
   CreateEC2LCWithKeyPair: !Not
     - !Equals
       - !Ref KeyName
@@ -169,29 +148,17 @@ Resources:
     Properties:
       SubnetId: !Ref PubSubnetAz2
       RouteTableId: !Ref RouteViaIgw
-  EcsSecurityGroup:
+  EcsInternalSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: ECS Allowed Ports
       VpcId: !Ref Vpc
-      SecurityGroupIngress: !If
-        - CreateELB
-        - - IpProtocol: tcp
-            FromPort: '1'
-            ToPort: '65535'
-            SourceSecurityGroupId: !Ref AlbSecurityGroup
-        - - IpProtocol: tcp
-            FromPort: !If
-              - UseDynamicPorts
-              - '49153'
-              - !Ref EcsPort
-            ToPort: !If
-              - UseDynamicPorts
-              - '65535'
-              - !Ref EcsPort
-            CidrIp: !Ref SourceCidr
-  AlbSecurityGroup:
-    Condition: CreateELB
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '1'
+          ToPort: '65535'
+          SourceSecurityGroupId: !Ref AlbInternalSecurityGroup
+  AlbInternalSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: ELB Allowed Ports
@@ -201,38 +168,90 @@ Resources:
           FromPort: !Ref ElbPort
           ToPort: !Ref ElbPort
           CidrIp: !Ref SourceCidr
-  DefaultTargetGroup:
-    Condition: CreateELB
+  InternalTargetGroup:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
-      Name: !Ref TargetGroupName
+      Name: !Join
+            - ''
+            - - !Ref 'AWS::StackName'
+              - '-internal-tg'
       VpcId: !Ref Vpc
       Port: !Ref ElbPort
       Protocol: HTTP
-  EcsElasticLoadBalancer:
-    Condition: CreateELB
+  EcsInternalElasticLoadBalancer:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
       Name: !Join
             - ''
             - - !Ref 'AWS::StackName'
-              - '-alb'
+              - '-internal-alb'
       SecurityGroups:
-        - !Ref AlbSecurityGroup
+        - !Ref AlbInternalSecurityGroup
       Subnets:
         - !Ref PubSubnetAz1
         - !Ref PubSubnetAz2
-      Scheme: !Ref ElbScheme
-  LoadBalancerListener:
-    Condition: CreateELB
+      Scheme: internal
+  InternalLoadBalancerListener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
-      LoadBalancerArn: !Ref EcsElasticLoadBalancer
+      LoadBalancerArn: !Ref EcsInternalElasticLoadBalancer
       Port: !Ref ElbPort
       Protocol: HTTP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref DefaultTargetGroup
+          TargetGroupArn: !Ref InternalTargetGroup
+  EcsInternetFacingSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: ECS Allowed Ports
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '1'
+          ToPort: '65535'
+          SourceSecurityGroupId: !Ref AlbInternetFacingSecurityGroup
+  AlbInternetFacingSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: ELB Allowed Ports
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ElbPort
+          ToPort: !Ref ElbPort
+          CidrIp: !Ref SourceCidr
+  InternetFacingTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Name: !Join
+            - ''
+            - - !Ref 'AWS::StackName'
+              - '-internet-facing-tg'
+      VpcId: !Ref Vpc
+      Port: !Ref ElbPort
+      Protocol: HTTP
+  EcsInternetFacingElasticLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Name: !Join
+            - ''
+            - - !Ref 'AWS::StackName'
+              - '-internet-facing-alb'
+      SecurityGroups:
+        - !Ref AlbInternetFacingSecurityGroup
+      Subnets:
+        - !Ref PubSubnetAz1
+        - !Ref PubSubnetAz2
+      Scheme: internet-facing
+  InternetFacingLoadBalancerListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref EcsInternetFacingElasticLoadBalancer
+      Port: !Ref ElbPort
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref InternetFacingTargetGroup
   EcsInstanceLc:
     Type: 'AWS::AutoScaling::LaunchConfiguration'
     Properties:
@@ -245,7 +264,8 @@ Resources:
         - !Ref KeyName
         - !Ref 'AWS::NoValue'
       SecurityGroups:
-        - !Ref EcsSecurityGroup
+        - !Ref EcsInternalSecurityGroup
+        - !Ref EcsInternetFacingSecurityGroup
       UserData: !If
         - SetEndpointToECSAgent
         - !Base64
@@ -292,10 +312,10 @@ Outputs:
   EcsInstanceAsgName:
     Description: Auto Scaling Group Name for ECS Instances
     Value: !Ref EcsInstanceAsg
-  EcsElbName:
-    Description: Load Balancer for ECS Service
-    Value: !If
-      - CreateELB
-      - !Ref EcsElasticLoadBalancer
-      - ''
+  EcsInternalElbName:
+    Description: Internal Load Balancer for ECS Service
+    Value: !Ref EcsInternalElasticLoadBalancer
+  EcsInternetFacingElbName:
+    Description: Internet-facing Load Balancer for ECS Service
+    Value: !Ref EcsInternetFacingElasticLoadBalancer
 '''

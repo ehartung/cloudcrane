@@ -63,13 +63,13 @@ def cluster(command, cluster_name, ami, instance_type, max_instances):
         cf_parameters['EcsAmiId'] = ami
         cf_parameters['EcsInstanceType'] = instance_type
         cf_parameters['AsgMaxSize'] = max_instances
-        __create_cf_stack(stack_name=cluster_name, version='1', parameters=cf_parameters)
+        __create_cf_stack(stack_name=cluster_name, parameters=cf_parameters)
 
     elif command == 'list':
-        __list_stacks(all=cluster_name == 'all')
+        __list_clusters(all=cluster_name == 'all')
 
     elif command == 'delete':
-        __delete_cf_stack(stack_name=cluster_name, version='1')
+        __delete_cf_stack(stack_name=cluster_name)
         ecs.delete_cluster(cluster=cluster_name)
 
 
@@ -110,7 +110,9 @@ def service(command, cluster_name, application, version, region, parameters):
             containerDefinitions=container_definitions
         )
 
-        target_groups = elb.describe_target_groups(Names=['default'])['TargetGroups']
+        target_groups = elb.describe_target_groups(
+            Names=[cluster_name + '-' + parameters['loadBalancer'] + '-tg']
+        )['TargetGroups']
 
         ecs.create_service(
             cluster=cluster_name,
@@ -153,10 +155,10 @@ def service(command, cluster_name, application, version, region, parameters):
         )
 
     elif command == 'list':
-        __list_tasks(cluster_name=cluster_name)
+        __list_services(cluster_name=cluster_name)
 
 
-def __create_cf_stack(stack_name, version, parameters):
+def __create_cf_stack(stack_name, parameters):
     """
     Create AWS CloudFormation stack for an application.
     """
@@ -170,7 +172,7 @@ def __create_cf_stack(stack_name, version, parameters):
         cf_parameters_list.append({'ParameterKey': key, 'ParameterValue': value})
 
     cf.create_stack(
-        StackName=stack_name + '-' + version,
+        StackName=stack_name,
         TemplateBody=cf_template,
         Parameters=cf_parameters_list,
         DisableRollback=False,
@@ -182,16 +184,12 @@ def __create_cf_stack(stack_name, version, parameters):
             {
                 'Key': 'name',
                 'Value': stack_name
-            },
-            {
-                'Key': 'version',
-                'Value': version
             }
         ]
     )
 
 
-def __delete_cf_stack(stack_name, version):
+def __delete_cf_stack(stack_name):
     """
     Delete AWS CloudFormation stack for an application.
     """
@@ -199,13 +197,13 @@ def __delete_cf_stack(stack_name, version):
     cf = boto3.client('cloudformation')
 
     cf.delete_stack(
-        StackName=stack_name + '-' + version,
+        StackName=stack_name,
     )
 
 
-def __list_stacks(all):
+def __list_clusters(all):
     """
-    List active AWS CloudFormation stacks.
+    List active ECS clusters (AWS CloudFormation stacks).
     """
 
     cf = boto3.client('cloudformation')
@@ -237,20 +235,20 @@ def __list_stacks(all):
     rows = []
 
     for stack in response['StackSummaries']:
-        rows.append({'stack_name': stack['StackName'],
+        rows.append({'cluster_name': stack['StackName'],
                      'status': stack['StackStatus'],
                      'creation_time': calendar.timegm(stack['CreationTime'].timetuple()),
                      'description': stack['TemplateDescription']})
 
-    rows.sort(key=lambda x: x['stack_name'])
+    rows.sort(key=lambda x: x['cluster_name'])
 
-    columns = ['stack_name', 'status', 'creation_time', 'description']
+    columns = ['cluster_name', 'status', 'creation_time', 'description']
     print_table(columns, rows, styles=STYLES, titles=TITLES)
 
 
-def __list_tasks(cluster_name):
+def __list_services(cluster_name):
     """
-    List active ECS tasks.
+    List active ECS services.
     """
     rows = []
 
