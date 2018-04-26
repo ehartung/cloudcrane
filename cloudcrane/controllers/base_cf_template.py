@@ -1,4 +1,7 @@
-BASE_TEMPLATE = '''
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+BASE_CF_TEMPLATE = '''
 AWSTemplateFormatVersion: 2010-09-09
 Description: AWS CloudFormation template
 Parameters:
