@@ -13,8 +13,8 @@ import setuptools
 from setuptools.command.test import test as TestCommand
 from setuptools import setup
 
-if sys.version_info < (3, 5, 0):
-    sys.stderr.write('FATAL: Cloudcrane needs to be run with Python 3.5+\n')
+if sys.version_info < (3, 6, 0):
+    sys.stderr.write('FATAL: Cloudcrane needs to be run with Python 3.6+\n')
     sys.exit(1)
 __location__ = os.path.join(os.getcwd(), os.path.dirname(inspect.getfile(inspect.currentframe())))
 
