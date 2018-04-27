@@ -1,6 +1,6 @@
 import io
 
-from mock import patch
+from unittest.mock import patch
 from unittest import TestCase
 
 from cloudcrane.cli import cli
