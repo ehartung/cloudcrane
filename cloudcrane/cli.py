@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import click
+import yaml
 
 from .controllers.cluster_controller import ClusterController
 from .controllers.service_controller import ServiceController
@@ -69,11 +70,15 @@ def service(command, cluster_name, application, version, region, parameters):
         service_name = application
 
     if command == 'deploy':
+
+        with open(parameters, 'rb') as f:
+            service_parameters = yaml.load(f)
+
         service_controller.deploy(
             cluster_name=cluster_name,
             service_name=service_name,
             region=region,
-            parameters=parameters
+            parameters=service_parameters
         )
 
     elif command == 'delete':

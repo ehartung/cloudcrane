@@ -3,9 +3,9 @@
 
 import boto3
 import calendar
+import clickclick.console
 
 from abc import ABCMeta
-from clickclick.console import print_table
 
 from cloudcrane.controllers.base_cf_template import BASE_CF_TEMPLATE
 
@@ -122,4 +122,4 @@ class ClusterController(metaclass=ABCMeta):
         rows.sort(key=lambda x: x['cluster_name'])
 
         columns = ['cluster_name', 'status', 'creation_time', 'description']
-        print_table(columns, rows, styles=STYLES, titles=TITLES)
+        clickclick.console.print_table(columns, rows, styles=STYLES, titles=TITLES)

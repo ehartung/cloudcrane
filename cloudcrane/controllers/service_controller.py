@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import boto3
+import clickclick.console
 import time
-import yaml
 
 from abc import ABCMeta
-from clickclick.console import print_table
 
 STYLES = {
     'ACTIVE': {'fg': 'green'},
@@ -30,9 +29,6 @@ class ServiceController(metaclass=ABCMeta):
         """
         Deploy
         """
-        with open(parameters, 'rb') as f:
-            parameters = yaml.load(f)
-
         container_definitions = list()
         container_definitions.append(parameters['containerDefinition'])
 
@@ -103,7 +99,7 @@ class ServiceController(metaclass=ABCMeta):
         rows.sort(key=lambda x: x['status'])
 
         columns = ['service_name', 'status', 'tasks']
-        print_table(columns, rows, styles=STYLES, titles=TITLES)
+        clickclick.console.print_table(columns, rows, styles=STYLES, titles=TITLES)
 
     def __get_service_description(self, cluster_name, service_name):
         """
