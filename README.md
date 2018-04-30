@@ -2,7 +2,7 @@
 [![Coverage Status](https://codecov.io/github/ehartung/cloudcrane/coverage.svg?branch=master)](https://codecov.io/github/ehartung/cloudcrane?branch=master)
 
 # Cloudcrane
-Deploy application stacks with AWS CloudFormation and Elastic Container Service (ECS)
+Easy deployment of microservices with AWS CloudFormation and Elastic Container Service (ECS).
 
 ## Installation
 Clone this repository and install Cloudcrane on your machine using the following command
