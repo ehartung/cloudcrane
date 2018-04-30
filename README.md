@@ -4,33 +4,44 @@
 # Cloudcrane
 Deploy application stacks with AWS CloudFormation and Elastic Container Service (ECS)
 
-## How to use Cloudcrane
-
-1. Deploy Docker image of your application to AWS ECR
-2. Clone this repository and install Cloudcrane on your machine
+## Installation
+Clone this repository and install Cloudcrane on your machine using the following command
 
         $ sudo python3 setup.py install
 
-3. Create SSH key pair for your ECS cluster
+## ECS cluster management with Cloudcrane
+![Cloudcrane ECS cluster setup](cloudcrane-cluster.png)
+
+1. Create SSH key pair for your ECS cluster
  
         $ aws ec2 create-key-pair --key-name ecs-ssh
  
-4. Create ECS cluster in your AWS account
+2. The following command will create an ECS cluster as shown in the picture above in your AWS account
 
         $ cloudcrane cluster --ami='<AMI_ID>' create
+        
+### List ECS clusters
+In order to see the currently running ECS clusters in your account run
 
-5. Create a Cloudcrane configuration file for your application (see example.yaml)
-6. Deploy your application to your AWS account
+        $ cloudcrane cluster list
+
+### Delete ECS cluster
+
+        $ cloudcrane cluster delete
+
+
+### Service deployment with Cloudcrane
+![Cloudcrane ECS service setup](cloudcrane-service.png)
+
+1. Deploy Docker image of your application to AWS ECR
+2. Create a Cloudcrane configuration file for your application (see example.yaml)
+3. Deploy your application to your AWS account
 
         $ cloudcrane service --application=my-app --version=1 --parameters=example.yaml deploy
         
-## Stop application
+## Delete application
 
-        $ cloudcrane service --application=my-app --version=1 delete
-        
-## Delete CloudFormation stack
-
-        $ cloudcrane cluster delete
+        $ cloudcrane service --application=my-app --version=1 delete        
         
 ## Connect to your Docker container
 For connecting via SSH, add port 22 to security group first, then:
